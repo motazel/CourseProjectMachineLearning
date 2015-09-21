@@ -1,0 +1,179 @@
+---
+title: "Personal Activity Data Prediction Models"
+author: "Motaz El Saban"
+date: "Sunday, September 20, 2015"
+output: html_document
+---
+
+#Executive Summary 
+
+In this project, we are analyzing personal activity data made available by the prevalence of devices such as Jawbone Up, FuelBand, Nike, and Fitbit. These days different people bcame health aware and take regular measuremtns to monitor their self movement and find patterns in their behavior. Of particular interest is to quantify how much is a person doing of a particular type of activity. 
+In this project we will use the data from accelerometers on th ebelt, arm, forearm and dumbell for 6 participants.
+
+
+#Data
+
+The training and testing data for this project are downloaded from the following two sources respectively: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv and https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+I first download it to my working station and then load it. I will set the seed to 125 to allow reproducibility if someone re-runs the training and testing again.
+
+```{r, echo=TRUE, cache=TRUE, warning=FALSE, message=FALSE}
+library(caret)
+library(kernlab)
+library(rpart)
+library(e1071)
+set.seed(125)
+TrainingData = read.csv("D:\\Motazel\\DataScience\\pml-training.csv")
+TestingData = read.csv("D:\\Motazel\\DataScience\\pml-testing.csv")
+```
+
+I will then use three models and then do a voting between them for predciting new testing instances, namely, random forests, SVM and decision treees. I will use the outcome "classe" with 3 repeats of 10 folds cross validation using relevant predictor variables. These are variables that are not NAN nor absent from the measuremnts and which are probably useful, as for example the timestamp of the readings is probably not related to the activity. I chose model combination of three classifiers that are known to yield good accuracy. I chose 10 folds cross validation as used by many practitioners. 
+
+```{r, echo=TRUE, cache=TRUE, warning=FALSE, message=FALSE}
+attach(TrainingData)
+ctrl = trainControl(method="repeatedcv",repeats = 3, allowParallel=TRUE)                 
+
+ModelFitDecisionTree = train(classe ~roll_belt+pitch_belt+yaw_belt+total_accel_arm+total_accel_belt+total_accel_dumbbell+total_accel_forearm+accel_arm_x+accel_arm_y+accel_arm_z+gyros_arm_x+gyros_arm_y+gyros_arm_z+magnet_arm_x+magnet_arm_y+magnet_arm_z+gyros_belt_x+gyros_belt_y+gyros_belt_z+accel_belt_x+accel_belt_y+accel_belt_z+pitch_arm+roll_arm+yaw_arm+roll_arm+pitch_arm+yaw_arm+magnet_belt_x+magnet_belt_y+magnet_belt_z+roll_arm+pitch_arm+yaw_arm+roll_dumbbell+pitch_dumbbell+yaw_dumbbell, method="rpart",data=TrainingData,trControl = ctrl)
+
+ModelFitSVM = svm(classe ~roll_belt+pitch_belt+yaw_belt+total_accel_arm+total_accel_belt+total_accel_dumbbell+total_accel_forearm+accel_arm_x+accel_arm_y+accel_arm_z+gyros_arm_x+gyros_arm_y+gyros_arm_z+magnet_arm_x+magnet_arm_y+magnet_arm_z+gyros_belt_x+gyros_belt_y+gyros_belt_z+accel_belt_x+accel_belt_y+accel_belt_z+pitch_arm+roll_arm+yaw_arm+roll_arm+pitch_arm+yaw_arm+magnet_belt_x+magnet_belt_y+magnet_belt_z+roll_arm+pitch_arm+yaw_arm+roll_dumbbell+pitch_dumbbell+yaw_dumbbell, method="rpart",data=TrainingData,trControl = ctrl)
+
+ModelFitRandomForests = train(classe ~roll_belt+pitch_belt+yaw_belt+total_accel_arm+total_accel_belt+total_accel_dumbbell+total_accel_forearm+accel_arm_x+accel_arm_y+accel_arm_z+gyros_arm_x+gyros_arm_y+gyros_arm_z+magnet_arm_x+magnet_arm_y+magnet_arm_z+gyros_belt_x+gyros_belt_y+gyros_belt_z+accel_belt_x+accel_belt_y+accel_belt_z+pitch_arm+roll_arm+yaw_arm+roll_arm+pitch_arm+yaw_arm+magnet_belt_x+magnet_belt_y+magnet_belt_z+roll_arm+pitch_arm+yaw_arm+roll_dumbbell+pitch_dumbbell+yaw_dumbbell, method="rf",data=TrainingData,trControl = ctrl)
+```
+
+
+Since I did a relatively large number of folds in cross validation with model voting also, I am guessing that the out of sample error will not be be far (i.e.not much larger) than the estimated error on the left out validation set in the various folds of cross validation. 
+
+
+Next I will use the model to predcit for new test samples. I will first use the rovided function "" to write the test answers in 20 test files. 
+
+```{r, echo=TRUE, cache=TRUE, warning=FALSE, message=FALSE}
+setwd("D:\\Motazel\\DataScience")
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+
+answersDecisionTree = predict(ModelFitDecisionTree,TestingData)
+answersSVM = predict(ModelFitSVM,TestingData)
+answersRandomForests = predict(ModelFitRandomForests,TestingData)
+```
+
+Next I will run code to find the activity with maximum votes among all classsifiers. I will not write the code in the HTML output as it is a bit lengthy. 
+
+```{r, echo=FALSE, cache=TRUE, warning=FALSE, message=FALSE}
+answersVotingOfClassifiers = rep("A", 20)
+votingVector = rep(0,5)
+for (ii in 1 : 20){
+  
+  if(answersDecisionTree[ii] == "A")
+  {
+    votingVector[1] = votingVector [1] + 1
+  }
+  if(answersDecisionTree[ii] == "B")
+  {
+    votingVector[2] = votingVector [2] + 1
+  }
+  if(answersDecisionTree[ii] == "C")
+  {
+    votingVector[3] = votingVector [3] + 1
+  }
+  if(answersDecisionTree[ii] == "D")
+  {
+    votingVector[4] = votingVector [4] + 1
+  }
+  if(answersDecisionTree[ii] == "E")
+  {
+    votingVector[5] = votingVector [5] + 1
+  }
+  
+  
+  
+  
+  if(answersRandomForests[ii] == "A")
+  {
+    votingVector[1] = votingVector [1] + 1
+  }
+  if(answersRandomForests[ii] == "B")
+  {
+    votingVector[2] = votingVector [2] + 1
+  }
+  if(answersRandomForests[ii] == "C")
+  {
+    votingVector[3] = votingVector [3] + 1
+  }
+  if(answersRandomForests[ii] == "D")
+  {
+    votingVector[4] = votingVector [4] + 1
+  }
+  if(answersRandomForests[ii] == "E")
+  {
+    votingVector[5] = votingVector [5] + 1
+  }
+  
+  
+  
+  if(answersSVM[ii] == "A")
+  {
+    votingVector[1] = votingVector [1] + 1
+  }
+  if(answersSVM[ii] == "B")
+  {
+    votingVector[2] = votingVector [2] + 1
+  }
+  if(answersSVM[ii] == "C")
+  {
+    votingVector[3] = votingVector [3] + 1
+  }
+  if(answersSVM[ii] == "D")
+  {
+    votingVector[4] = votingVector [4] + 1
+  }
+  if(answersSVM[ii] == "E")
+  {
+    votingVector[5] = votingVector [5] + 1
+  }
+  
+  
+  IndexLargestVotes = which.max(votingVector)
+  
+  if(IndexLargestVotes == 1)
+  {
+    answersVotingOfClassifiers[ii] = "A"
+    
+  }
+  if(IndexLargestVotes == 2)
+  {
+    answersVotingOfClassifiers[ii] = "B"
+    
+  }
+  if(IndexLargestVotes == 3)
+  {
+    answersVotingOfClassifiers[ii] = "C"
+    
+  }
+  if(IndexLargestVotes == 4)
+  {
+    answersVotingOfClassifiers[ii] = "D"
+    
+  }
+  if(IndexLargestVotes == 5)
+  {
+    answersVotingOfClassifiers[ii] = "E"
+    
+  }
+  
+  
+  votingVector = rep(0,5)
+  
+}
+```
+
+```{r, echo=TRUE, cache=TRUE, warning=FALSE, message=FALSE}
+pml_write_files(answersVotingOfClassifiers)
+```
+Actually, after running the output of the voting classifiers through the submission system , the voting classifier got 19/20 corret answers which is pretty good indeed. The first test case was wrong with the voting classifier but the the random forest result for it was correct. 
